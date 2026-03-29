@@ -1,0 +1,20 @@
+[Unit]
+Description=TeslaPulse - AI Co-Pilot Dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/teslapulse
+ExecStart=/usr/bin/npx next start -p 3100
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3100
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=teslapulse
+
+[Install]
+WantedBy=multi-user.target
