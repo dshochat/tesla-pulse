@@ -1,4 +1,4 @@
-const CACHE_NAME = "teslapulse-v1";
+const CACHE_NAME = "teslapulse-v2";
 
 // Install: just activate immediately
 self.addEventListener("install", () => {

@@ -253,6 +253,9 @@ export default function SettingsPage() {
         {/* Background Polling */}
         <BackgroundPollingSection />
 
+        {/* Voice Co-Pilot */}
+        <VoiceSettingsSection />
+
         {/* Provider Selection */}
         <section>
           <h2 className="mb-1 text-sm font-medium text-text-primary">AI Provider</h2>
@@ -589,6 +592,111 @@ function BackgroundPollingSection() {
           Background poller: <span style={{ color: statusColor }}>{statusLabel}</span>
         </span>
       </div>
+    </section>
+  );
+}
+
+function VoiceSettingsSection() {
+  const [enabled, setEnabled] = useState(true);
+  const [voice, setVoice] = useState("Rex");
+  const [alwaysListening, setAlwaysListening] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      const v = d.voice || {};
+      setEnabled(v.enabled ?? true);
+      setVoice(v.voice ?? "Rex");
+      setAlwaysListening(v.always_listening ?? false);
+    }).catch(() => {});
+  }, []);
+
+  const save = async (updates: Record<string, unknown>) => {
+    const newVoice = { enabled, voice, always_listening: alwaysListening, ...updates };
+    if ("enabled" in updates) setEnabled(updates.enabled as boolean);
+    if ("voice" in updates) setVoice(updates.voice as string);
+    if ("always_listening" in updates) setAlwaysListening(updates.always_listening as boolean);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voice: newVoice }),
+    });
+  };
+
+  const voices = [
+    { id: "Rex", label: "Rex", desc: "Confident, clear (Male)" },
+    { id: "Leo", label: "Leo", desc: "Authoritative, strong (Male)" },
+    { id: "Eve", label: "Eve", desc: "Energetic, upbeat (Female)" },
+    { id: "Ara", label: "Ara", desc: "Warm, friendly (Female)" },
+    { id: "Sal", label: "Sal", desc: "Smooth, balanced (Neutral)" },
+  ];
+
+  return (
+    <section className="rounded-xl border border-border bg-bg-card p-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-medium text-text-primary">Voice Co-Pilot</h2>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            Talk to Pulse using your microphone. Requires Grok (xAI) API key.
+          </p>
+        </div>
+        <button
+          onClick={() => save({ enabled: !enabled })}
+          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <motion.span
+            className="inline-block h-5 w-5 rounded-full bg-white shadow-sm"
+            animate={{ x: enabled ? 22 : 2 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+          />
+        </button>
+      </div>
+
+      {enabled && (
+        <div className="mt-4 space-y-4">
+          {/* Voice selection */}
+          <div>
+            <label className="mb-2 block text-xs font-medium text-text-secondary">Voice</label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {voices.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => save({ voice: v.id })}
+                  className={`rounded-lg border p-2 text-left transition-all ${
+                    voice === v.id
+                      ? "border-accent/50 bg-accent/5"
+                      : "border-border bg-bg hover:border-border/80"
+                  }`}
+                >
+                  <div className="text-xs font-medium text-text-primary">{v.label}</div>
+                  <div className="text-[10px] text-text-secondary">{v.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Always listening */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs font-medium text-text-primary">Hands-free Mode</div>
+              <div className="text-[10px] text-text-secondary">Keep mic open while dashboard is active</div>
+            </div>
+            <button
+              onClick={() => save({ always_listening: !alwaysListening })}
+              className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
+                alwaysListening ? "bg-accent" : "bg-border"
+              }`}
+            >
+              <motion.span
+                className="inline-block h-4 w-4 rounded-full bg-white shadow-sm"
+                animate={{ x: alwaysListening ? 18 : 2 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

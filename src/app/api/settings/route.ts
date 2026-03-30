@@ -18,11 +18,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { demo_mode, background_polling, llm_provider, keys } = body as {
+    const { demo_mode, background_polling, llm_provider, keys, voice } = body as {
       demo_mode?: boolean;
       background_polling?: boolean;
       llm_provider?: string;
       keys?: Record<string, string>;
+      voice?: { enabled?: boolean; voice?: string; always_listening?: boolean };
     };
 
     const current = getSettings();
@@ -42,6 +43,14 @@ export async function POST(request: NextRequest) {
     // Update provider if provided
     if (llm_provider && ["grok", "claude", "openai", "gemini"].includes(llm_provider)) {
       current.llm_provider = llm_provider;
+    }
+
+    // Update voice settings
+    if (voice) {
+      if (!current.voice) current.voice = { enabled: true, voice: "Rex", always_listening: false };
+      if (typeof voice.enabled === "boolean") current.voice.enabled = voice.enabled;
+      if (voice.voice) current.voice.voice = voice.voice;
+      if (typeof voice.always_listening === "boolean") current.voice.always_listening = voice.always_listening;
     }
 
     // Update keys — skip if empty or still masked

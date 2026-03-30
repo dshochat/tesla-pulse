@@ -2,6 +2,7 @@ import { getSettings } from "./settings";
 import { telemetryStore, vehicleDataToTelemetry, determineDashboardMode } from "./telemetry-store";
 import { detectAnomalies } from "./anomaly-detector";
 import { saveTelemetry, saveAnomaly, getRecentTelemetry } from "./db";
+import { startVoiceServer } from "./voice-server";
 
 const POLL_INTERVAL = 60_000; // 60s flat
 const BROWSER_TIMEOUT = 120_000; // 2 min without browser poll = disconnected
@@ -34,6 +35,13 @@ export function startBackgroundPoller() {
   if (poller) return; // already running
 
   console.log("[TeslaPulse] Background poller started (60s interval)");
+
+  // Start voice server alongside background poller
+  try {
+    startVoiceServer();
+  } catch (err) {
+    console.error("[TeslaPulse] Voice server failed to start:", err);
+  }
 
   // Hydrate buffer from DB if needed
   if (!telemetryStore.hydrated) {

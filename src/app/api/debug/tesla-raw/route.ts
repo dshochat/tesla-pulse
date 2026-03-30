@@ -17,65 +17,78 @@ export async function GET() {
     }
     const vid = vehicles[0].id_s || String(vehicles[0].id);
 
-    // Fetch each category individually and merge (combined endpoint returns partial)
-    const categories = ["charge_state", "climate_state", "drive_state", "vehicle_state", "vehicle_config"];
-    const results: Record<string, unknown> = {};
+    // Test 1: Combined endpoint (all at once)
+    let combinedRaw: Record<string, unknown> = {};
+    try {
+      const res = await fetch(
+        `${FLEET_API_BASE}/api/1/vehicles/${vid}/vehicle_data?endpoints=charge_state;climate_state;drive_state;vehicle_state`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      combinedRaw = await res.json();
+    } catch (err) {
+      combinedRaw = { error: String(err) };
+    }
 
-    for (const ep of categories) {
-      try {
-        const res = await fetch(
-          `${FLEET_API_BASE}/api/1/vehicles/${vid}/vehicle_data?endpoints=${ep}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (data.response?.[ep]) {
-            results[ep] = "present (" + Object.keys(data.response[ep]).length + " keys)";
-          } else {
-            results[ep] = "200 but empty";
-          }
-          // Merge into a sample
-          if (ep === "drive_state" && data.response?.drive_state) {
-            const ds = data.response.drive_state;
-            results.drive_state_sample = {
-              speed: ds.speed,
-              shift_state: ds.shift_state,
-              power: ds.power,
-              heading: ds.heading,
-              latitude: ds.latitude,
-              longitude: ds.longitude,
-            };
-          }
-          if (ep === "climate_state" && data.response?.climate_state) {
-            const cl = data.response.climate_state;
-            results.climate_sample = {
-              inside_temp: cl.inside_temp,
-              outside_temp: cl.outside_temp,
-              is_climate_on: cl.is_climate_on,
-            };
-          }
-          if (ep === "vehicle_state" && data.response?.vehicle_state) {
-            const vs = data.response.vehicle_state;
-            results.vehicle_state_sample = {
-              locked: vs.locked,
-              odometer: vs.odometer,
-              sentry_mode: vs.sentry_mode,
-              car_version: vs.car_version,
-            };
-          }
-        } else {
-          results[ep] = `HTTP ${res.status}`;
-        }
-      } catch (err) {
-        results[ep] = `error: ${err instanceof Error ? err.message : "unknown"}`;
-      }
+    // Extract the top-level keys and what's actually inside
+    const response = (combinedRaw as Record<string, unknown>).response as Record<string, unknown> || {};
+    const responseKeys = Object.keys(response);
+
+    // Check if drive_state exists at response level
+    const driveStateAtRoot = response.drive_state;
+    // Check for speed/shift_state at response level (maybe Tesla flattens it)
+    const speedAtRoot = response.speed;
+    const shiftAtRoot = response.shift_state;
+
+    // Test 2: drive_state alone
+    let driveStateRaw: Record<string, unknown> = {};
+    try {
+      const res = await fetch(
+        `${FLEET_API_BASE}/api/1/vehicles/${vid}/vehicle_data?endpoints=drive_state`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      driveStateRaw = await res.json();
+    } catch (err) {
+      driveStateRaw = { error: String(err) };
+    }
+
+    const driveResponse = (driveStateRaw as Record<string, unknown>).response as Record<string, unknown> || {};
+    const driveResponseKeys = Object.keys(driveResponse);
+    const driveStateNested = driveResponse.drive_state as Record<string, unknown> | undefined;
+
+    // Test 3: location_data endpoint (newer API)
+    let locationRaw: Record<string, unknown> = {};
+    try {
+      const res = await fetch(
+        `${FLEET_API_BASE}/api/1/vehicles/${vid}/vehicle_data?endpoints=location_data`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      locationRaw = await res.json();
+    } catch (err) {
+      locationRaw = { error: String(err) };
     }
 
     return NextResponse.json({
       vehicle_id: vid,
-      vehicle_name: vehicles[0].display_name,
-      state: vehicles[0].state,
-      results,
+      vehicle_state: vehicles[0].state,
+
+      // Combined endpoint analysis
+      combined_response_keys: responseKeys,
+      combined_has_drive_state_key: !!driveStateAtRoot,
+      combined_drive_state_value: driveStateAtRoot || null,
+      combined_speed_at_root: speedAtRoot ?? "not present",
+      combined_shift_state_at_root: shiftAtRoot ?? "not present",
+
+      // drive_state-only endpoint analysis
+      drive_only_response_keys: driveResponseKeys,
+      drive_only_has_drive_state_nested: !!driveStateNested,
+      drive_only_drive_state: driveStateNested || null,
+      // Show ALL fields from the drive_state response at top level
+      drive_only_response_sample: Object.fromEntries(
+        driveResponseKeys.slice(0, 30).map(k => [k, driveResponse[k]])
+      ),
+
+      // location_data endpoint
+      location_response: (locationRaw as Record<string, unknown>).response || locationRaw,
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });

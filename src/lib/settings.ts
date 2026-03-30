@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 
+export interface VoiceSettings {
+  enabled: boolean;
+  voice: string;
+  always_listening: boolean;
+}
+
 export interface AppSettings {
   demo_mode: boolean;
   background_polling: boolean;
@@ -13,6 +19,7 @@ export interface AppSettings {
   tesla_token_expires_at: number;
   last_known_lat: number;
   last_known_lng: number;
+  voice: VoiceSettings;
   keys: {
     tesla_client_id: string;
     tesla_client_secret: string;
@@ -45,6 +52,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   tesla_token_expires_at: 0,
   last_known_lat: 0,
   last_known_lng: 0,
+  voice: {
+    enabled: true,
+    voice: "Rex",
+    always_listening: false,
+  },
   keys: {
     tesla_client_id: "",
     tesla_client_secret: "",
@@ -80,6 +92,7 @@ export function getSettings(): AppSettings {
         tesla_token_expires_at: parsed.tesla_token_expires_at ?? 0,
         last_known_lat: parsed.last_known_lat ?? 0,
         last_known_lng: parsed.last_known_lng ?? 0,
+        voice: { ...DEFAULT_SETTINGS.voice, ...parsed.voice },
         keys: { ...DEFAULT_SETTINGS.keys, ...parsed.keys },
       };
     } catch {
@@ -100,6 +113,7 @@ export function getSettings(): AppSettings {
       tesla_token_expires_at: 0,
       last_known_lat: 0,
       last_known_lng: 0,
+      voice: { ...DEFAULT_SETTINGS.voice },
       keys: {
         tesla_client_id: process.env.TESLA_CLIENT_ID || "",
         tesla_client_secret: process.env.TESLA_CLIENT_SECRET || "",
@@ -158,6 +172,7 @@ export function getMaskedSettings(): {
   production_url: string;
   tesla_token_present: boolean;
   tesla_token_expires_at: number;
+  voice: VoiceSettings;
   keys: Record<string, string>;
   hasKey: Record<string, boolean>;
 } {
@@ -178,6 +193,7 @@ export function getMaskedSettings(): {
     production_url: settings.production_url,
     tesla_token_present: !!settings.tesla_access_token,
     tesla_token_expires_at: settings.tesla_token_expires_at,
+    voice: settings.voice,
     keys: masked,
     hasKey,
   };

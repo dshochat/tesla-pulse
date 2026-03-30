@@ -3,7 +3,7 @@ import { getSettings, saveSettings, clearSettingsCache } from "./settings";
 
 const TESLA_AUTH_URL = "https://auth.tesla.com/oauth2/v3/authorize";
 const TESLA_TOKEN_URL = "https://auth.tesla.com/oauth2/v3/token";
-const SCOPES = "openid offline_access vehicle_device_data vehicle_cmds vehicle_charging_cmds";
+const SCOPES = "openid offline_access vehicle_device_data vehicle_location vehicle_cmds vehicle_charging_cmds";
 
 // In-memory token cache (server-side singleton in dev)
 let cachedTokens: TeslaTokens | null = null;

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html><head><title>Mic Test</title></head>
+<body style="background:#000;color:#fff;font-family:sans-serif;padding:40px;text-align:center">
+<h2>Microphone Permission Test</h2>
+<button id="btn" style="padding:20px 40px;font-size:20px;background:#00d4ff;color:#000;border:none;border-radius:10px;cursor:pointer">
+  Tap to Test Mic
+</button>
+<p id="status" style="margin-top:20px;font-size:16px">Tap the button above</p>
+<script>
+document.getElementById('btn').onclick = function() {
+  document.getElementById('status').textContent = 'Requesting mic...';
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(stream) {
+      document.getElementById('status').textContent = 'MIC WORKS! Got stream with ' + stream.getAudioTracks().length + ' tracks';
+      document.getElementById('status').style.color = '#00ff88';
+      stream.getTracks().forEach(function(t) { t.stop(); });
+    })
+    .catch(function(err) {
+      document.getElementById('status').textContent = 'FAILED: ' + err.name + ' - ' + err.message;
+      document.getElementById('status').style.color = '#ff4466';
+    });
+};
+</script>
+</body></html>

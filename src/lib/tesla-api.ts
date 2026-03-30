@@ -81,12 +81,12 @@ export async function listVehicles(): Promise<TeslaVehicle[]> {
 export async function getVehicleData(
   vehicleId: number | string
 ): Promise<TeslaVehicleData> {
-  // Tesla's combined endpoint sometimes returns only partial data.
-  // Fetch each category individually in parallel and merge.
+  // Tesla moved drive telemetry (speed, shift_state, power, GPS) to location_data.
+  // The old drive_state endpoint returns empty. Fetch location_data instead.
   const categories = [
     "charge_state",
     "climate_state",
-    "drive_state",
+    "location_data",
     "vehicle_state",
     "vehicle_config",
   ];
@@ -104,6 +104,25 @@ export async function getVehicleData(
   for (const r of results) {
     if (r.status === "fulfilled") {
       merged = { ...merged, ...r.value.data };
+    }
+  }
+
+  // Tesla returns location/drive data under "drive_state" key in the response
+  // even when requested via "location_data" endpoint. If drive_state is missing
+  // but location fields exist at root, build it from those fields.
+  if (!merged.drive_state) {
+    const resp = merged as Record<string, unknown>;
+    // location_data response nests data under drive_state key
+    if (resp.drive_state === undefined) {
+      // Check if any location_data result had a drive_state
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.endpoint === "location_data") {
+          const locData = r.value.data;
+          if (locData.drive_state) {
+            merged.drive_state = locData.drive_state;
+          }
+        }
+      }
     }
   }
 

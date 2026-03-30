@@ -13,6 +13,7 @@ import AICoachCard from "./AICoachCard";
 import TripHistory from "./TripHistory";
 import AnomalyAlert from "./AnomalyAlert";
 import ChatPanel from "./ChatPanel";
+import VoiceCoPilot from "./VoiceCoPilot";
 import { useVehicle } from "@/hooks/useVehicle";
 import { useTelemetry, type DemoScenario } from "@/hooks/useTelemetry";
 import { useAICoach } from "@/hooks/useAICoach";
@@ -383,6 +384,7 @@ export default function Dashboard() {
 
       {/* Chat Panel (floating) */}
       <ChatPanel demoMode={effectiveDemo} />
+      <VoiceCoPilot demoMode={effectiveDemo} />
     </div>
   );
 }

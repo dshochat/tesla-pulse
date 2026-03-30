@@ -13,6 +13,7 @@ Supports **Grok**, **Claude**, **GPT**, and **Gemini** — pick your AI co-pilot
 - **Trip Summaries** — AI-generated post-drive analysis with efficiency score, highlights, and tips
 - **Anomaly Detection** — Catches vampire drain, power spikes, tire pressure imbalance, temp outliers
 - **AI Chat** — Ask questions about your car's data in natural language
+- **Voice Co-Pilot** — Talk to your car's AI using Grok's Voice Agent API (real-time, hands-free)
 - **Background Polling** — Records telemetry 24/7 even when the dashboard isn't open
 - **Persistent History** — Trips and telemetry stored in SQLite, survive restarts
 - **PWA Support** — Install on your phone as a native-feeling app
@@ -100,6 +101,18 @@ npm run build
 3. Tap "Add to Home Screen" (iOS) or "Install" (Android)
 4. Launches as a fullscreen app with the TeslaPulse icon
 
+## Voice Co-Pilot
+
+TeslaPulse includes a voice interface powered by xAI's Grok Voice Agent API. Tap the mic button on the dashboard to talk to "Pulse" — your AI co-pilot that has access to real-time vehicle telemetry.
+
+- Requires **Grok** as the LLM provider (uses the xAI Realtime API)
+- 5 voice options: Rex, Leo, Eve, Ara, Sal — configurable in Settings
+- Hands-free mode keeps the mic always open
+- Server-side WebSocket proxy keeps your API key secure
+- Live telemetry injected into the AI's context every 30 seconds
+
+**Production setup:** Add a WebSocket proxy to your nginx config for `/voice` → `localhost:3101`. See `scripts/nginx.conf.example`.
+
 ## Tesla API Costs
 
 Tesla provides a **$10/month free credit** per developer account. TeslaPulse is designed to stay within this:
@@ -138,6 +151,7 @@ src/
 │   ├── MiniMap.tsx         # Leaflet location map
 │   ├── AICoachCard.tsx     # AI efficiency tip card
 │   ├── ChatPanel.tsx       # Collapsible AI chat
+│   ├── VoiceCoPilot.tsx    # Voice co-pilot with mic + audio playback
 │   ├── TripHistory.tsx     # Past trips with AI summaries
 │   └── ...
 ├── hooks/                  # Custom React hooks
@@ -147,7 +161,9 @@ src/
 │   ├── tesla-api.ts        # Tesla Fleet API client
 │   ├── tesla-auth.ts       # OAuth flow + token refresh
 │   ├── db.ts               # SQLite schema + queries
-│   └── background-poller.ts # Server-side telemetry recording
+│   ├── background-poller.ts # Server-side telemetry recording
+│   ├── voice-server.ts     # WebSocket proxy for voice co-pilot
+│   └── voice-prompt.ts     # Dynamic voice system prompt builder
 └── types/                  # TypeScript type definitions
 ```
 

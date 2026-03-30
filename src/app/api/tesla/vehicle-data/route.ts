@@ -7,6 +7,7 @@ import { detectAnomalies } from "@/lib/anomaly-detector";
 import { saveTelemetry, saveAnomaly, getRecentTelemetry, saveTrip } from "@/lib/db";
 import { getProvider, buildTripContext } from "@/lib/llm/provider";
 import { notifyBrowserPoll, startBackgroundPoller } from "@/lib/background-poller";
+import { startVoiceServer } from "@/lib/voice-server";
 
 // Mock simulation state
 let mockDrivePoints: ReturnType<typeof generateMockDrive> | null = null;
@@ -41,6 +42,8 @@ export async function GET(request: NextRequest) {
     notifyBrowserPoll();
     // Ensure background poller is initialized (no-op if already running or disabled)
     startBackgroundPoller();
+    // Ensure voice server is running (no-op if already started)
+    try { startVoiceServer(); } catch { /* ok */ }
 
     if (demo) {
       if (currentScenario === "charging") {
