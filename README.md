@@ -15,7 +15,10 @@ Supports **Grok**, **Claude**, **GPT**, and **Gemini** — pick your AI co-pilot
 - **AI Chat** — Ask questions about your car's data in natural language
 - **Voice Co-Pilot** — Talk to your car's AI using Grok's Voice Agent API (real-time, hands-free)
 - **Background Polling** — Records telemetry 24/7 even when the dashboard isn't open
-- **Persistent History** — Trips and telemetry stored in SQLite, survive restarts
+- **Battery Health Tracker** — Monitors degradation over time with two methods: same-level comparison and extrapolated-to-100%. Degradation chart, charge session history, AI battery insights
+- **Persistent History** — Trips, telemetry, charge sessions, and battery health stored in SQLite, survive restarts
+- **Trip Reconstruction** — Missed trips (from server restarts mid-drive) are automatically reconstructed from stored telemetry on startup
+- **Rich AI Context** — Voice and chat AI have access to today/yesterday/week/lifetime driving stats, recent trips, charge history, and battery health
 - **PWA Support** — Install on your phone as a native-feeling app
 - **Multi-LLM** — Choose between Grok, Claude, GPT, or Gemini
 - **Settings UI** — Configure everything from the browser, no env files needed
@@ -27,7 +30,7 @@ Supports **Grok**, **Claude**, **GPT**, and **Gemini** — pick your AI co-pilot
 No API keys needed — just run it:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/tesla-pulse.git
+git clone https://github.com/dshochat/tesla-pulse.git
 cd tesla-pulse
 npm install
 npm run dev
@@ -142,7 +145,8 @@ src/
 │       ├── auth/           # Login, logout, setup, password change
 │       ├── settings/       # Settings CRUD + provider info
 │       ├── tesla/          # Vehicle data, commands, auth, token sync
-│       └── trips/          # Trip history
+│       ├── trips/          # Trip history + AI summary backfill
+│       └── battery-health/ # Battery degradation data
 ├── components/             # React components
 │   ├── Dashboard.tsx       # Main dashboard layout
 │   ├── HeroMetric.tsx      # Big speed/battery display
@@ -153,6 +157,7 @@ src/
 │   ├── ChatPanel.tsx       # Collapsible AI chat
 │   ├── VoiceCoPilot.tsx    # Voice co-pilot with mic + audio playback
 │   ├── TripHistory.tsx     # Past trips with AI summaries
+│   ├── BatteryHealth.tsx   # Battery degradation tracker + chart
 │   └── ...
 ├── hooks/                  # Custom React hooks
 ├── lib/                    # Server-side utilities
@@ -163,7 +168,9 @@ src/
 │   ├── db.ts               # SQLite schema + queries
 │   ├── background-poller.ts # Server-side telemetry recording
 │   ├── voice-server.ts     # WebSocket proxy for voice co-pilot
-│   └── voice-prompt.ts     # Dynamic voice system prompt builder
+│   ├── voice-prompt.ts     # Dynamic voice system prompt builder
+│   ├── battery-health.ts   # Charge session tracking + health computation
+│   └── history-context.ts  # Shared driving/charging history for AI prompts
 └── types/                  # TypeScript type definitions
 ```
 
