@@ -237,16 +237,25 @@ export async function GET(request: NextRequest) {
     const nowDriving = telemetryStore.isDriving;
     let tripSummary = null;
     if (wasDriving && !nowDriving && !demo) {
-      const tripPoints = telemetryStore.getCurrentTrip();
+      let tripPoints = telemetryStore.getCurrentTrip();
+
+      // Filter to consistent odometer values (remove mock data contamination)
+      if (tripPoints.length >= 2) {
+        const lastOdo = tripPoints[tripPoints.length - 1].odometer;
+        tripPoints = tripPoints.filter((p) => p.odometer > 1 && Math.abs(p.odometer - lastOdo) < 500);
+      }
+
       if (tripPoints.length >= 4 && tripPoints[0].odometer > 0) {
         try {
           const first = tripPoints[0];
           const last = tripPoints[tripPoints.length - 1];
           const ctx = buildTripContext(tripPoints);
 
-          // Sanity check — skip garbage data from mock/live transitions
-          if (ctx.distanceMiles < 0 || ctx.distanceMiles > 1000 || ctx.batteryStart <= 0 || ctx.durationMin < 1) {
-            console.log(`[TeslaPulse] Trip discarded — bad data: ${ctx.distanceMiles.toFixed(1)} mi, ${ctx.durationMin.toFixed(0)} min`);
+          // Sanity check
+          if (ctx.distanceMiles < 0.1 || ctx.distanceMiles > 500 || ctx.batteryStart <= 0 || ctx.durationMin < 1) {
+            console.log(`[TeslaPulse] Trip discarded — bad data: ${ctx.distanceMiles.toFixed(1)} mi, ${ctx.durationMin.toFixed(0)} min, falling back to DB reconstruction`);
+            // Fall back to reconstructing from DB
+            try { reconstructMissedTrips(); } catch { /* non-critical */ }
           } else {
           const tripId = `trip-${first.timestamp}`;
 
