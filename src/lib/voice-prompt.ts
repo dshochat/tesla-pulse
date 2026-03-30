@@ -1,5 +1,7 @@
 import { telemetryStore } from "./telemetry-store";
 import { buildHistoryContext } from "./history-context";
+import { getCurrentRoadName } from "./route-segments";
+import { buildHotspotContext, isHotspot } from "./route-patterns";
 
 export function buildVoiceSystemPrompt(): string {
   const recent = telemetryStore.getRecent(10);
@@ -58,6 +60,21 @@ export function buildVoiceSystemPrompt(): string {
     historyCtx = "DRIVING HISTORY: Unavailable";
   }
 
+  // Location-aware context
+  let locationCtx = "";
+  try {
+    if (lat && lng) {
+      const roadName = getCurrentRoadName(lat, lng);
+      locationCtx = `\nCURRENT ROAD: ${roadName}`;
+      const hotspot = isHotspot(roadName);
+      if (hotspot) {
+        locationCtx += ` (HOTSPOT: avg ${hotspot.avg_wh_per_mile} Wh/mi over ${hotspot.trip_count} trips)`;
+      }
+    }
+    const hotspotCtx = buildHotspotContext();
+    if (hotspotCtx) locationCtx += "\n" + hotspotCtx;
+  } catch { /* non-critical */ }
+
   return `You are Pulse, the AI voice co-pilot for a Tesla vehicle. You have access to real-time telemetry and full driving history. Be concise — the driver is driving. Keep responses under 3 sentences unless asked for detail.
 
 CURRENT VEHICLE STATE:
@@ -77,6 +94,7 @@ CURRENT SESSION:
 - Session efficiency: ${sessionEfficiency || "N/A"} Wh/mi
 
 ${historyCtx}
+${locationCtx}
 
 PERSONALITY:
 - You're like a calm, knowledgeable co-pilot

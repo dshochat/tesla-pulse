@@ -1,11 +1,19 @@
-import { NextResponse } from "next/server";
-import { getTrips, getTelemetryRange, updateTripAI } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+import { getTrips, getTelemetryRange, updateTripAI, getTripSegments, getHotspots } from "@/lib/db";
 import { getProvider, buildTripContext } from "@/lib/llm/provider";
+import { backfillTripSegments, buildSegmentSummary } from "@/lib/route-segments";
+import { updateHotspots } from "@/lib/route-patterns";
 
 export async function GET() {
   try {
     const trips = getTrips(20);
-    return NextResponse.json({ trips });
+    // Attach segments to each trip
+    const tripsWithSegments = trips.map((t) => ({
+      ...t,
+      segments: getTripSegments(t.id),
+    }));
+    const hotspots = getHotspots(10);
+    return NextResponse.json({ trips: tripsWithSegments, hotspots });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to load trips" },
@@ -14,9 +22,22 @@ export async function GET() {
   }
 }
 
-/** POST: Generate AI summaries for trips that don't have them */
-export async function POST() {
+/** POST: Generate AI summaries and/or backfill segments */
+export async function POST(request: NextRequest) {
   try {
+    let body: { action?: string } = {};
+    try { body = await request.json(); } catch { /* no body = default action */ }
+
+    // Backfill segments for trips that don't have them
+    if (body.action === "backfill-segments") {
+      const processed = await backfillTripSegments();
+      if (processed > 0) {
+        try { updateHotspots(); } catch { /* non-critical */ }
+      }
+      return NextResponse.json({ message: `Backfilled segments for ${processed} trip(s)`, processed });
+    }
+
+    // Default: generate AI summaries for trips missing them
     const trips = getTrips(20);
     const missing = trips.filter((t) => !t.ai_summary);
 
@@ -29,17 +50,15 @@ export async function POST() {
 
     for (const trip of missing) {
       try {
-        // Get telemetry for this trip's time range
         const points = getTelemetryRange(trip.started_at, trip.ended_at);
-
-        if (points.length < 2) {
-          console.log(`[Trips] Skipping ${trip.id} — not enough telemetry points`);
-          continue;
-        }
+        if (points.length < 2) continue;
 
         const ctx = buildTripContext(points);
-        const ai = await provider.generateTripSummary(ctx);
+        // Include segment data if available
+        const segSummary = buildSegmentSummary(trip.id);
+        if (segSummary) ctx.summary += segSummary;
 
+        const ai = await provider.generateTripSummary(ctx);
         updateTripAI(trip.id, {
           summary: ai.summary,
           score: ai.efficiency_score,
@@ -50,7 +69,7 @@ export async function POST() {
         generated++;
         console.log(`[Trips] AI summary generated for ${trip.id}`);
       } catch (err) {
-        console.error(`[Trips] Failed to generate summary for ${trip.id}:`, err instanceof Error ? err.message : err);
+        console.error(`[Trips] Failed for ${trip.id}:`, err instanceof Error ? err.message : err);
       }
     }
 

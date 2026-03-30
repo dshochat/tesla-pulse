@@ -8,6 +8,8 @@ import type {
   BatteryHealthSummary,
   ChargeSession,
   BatteryHealthSnapshot,
+  TripSegment,
+  EfficiencyHotspot,
   SameLevelHealth,
 } from "@/types/tesla";
 
@@ -482,6 +484,32 @@ export function mockBatteryHealthSummary(): BatteryHealthSummary {
     odometer: 12842,
   };
 }
+
+// ─── Mock Trip Segments ──────────────────────────────────────────────
+
+export const mockTripSegments: Record<string, TripSegment[]> = {
+  "trip-001": [
+    { trip_id: "trip-001", segment_order: 0, road_name: "Brushy Creek Road", road_type: "residential", start_lat: 30.5083, start_lng: -97.6789, end_lat: 30.5120, end_lng: -97.6850, avg_heading: 315, heading_bucket: "NW", distance_miles: 0.8, duration_sec: 95, avg_speed_mph: 30, avg_power_kw: 8.2, energy_kwh: 0.22, wh_per_mile: 210, point_count: 6, polyline_json: "[[30.5083,-97.6789],[30.5095,-97.6810],[30.5108,-97.6835],[30.5120,-97.6850]]" },
+    { trip_id: "trip-001", segment_order: 1, road_name: "183 Access Road", road_type: "primary", start_lat: 30.5120, start_lng: -97.6850, end_lat: 30.5155, end_lng: -97.6920, avg_heading: 290, heading_bucket: "W", distance_miles: 0.5, duration_sec: 45, avg_speed_mph: 42, avg_power_kw: 22.5, energy_kwh: 0.28, wh_per_mile: 380, point_count: 3, polyline_json: "[[30.5120,-97.6850],[30.5135,-97.6880],[30.5155,-97.6920]]" },
+    { trip_id: "trip-001", segment_order: 2, road_name: "183", road_type: "motorway", start_lat: 30.5155, start_lng: -97.6920, end_lat: 30.4850, end_lng: -97.7180, avg_heading: 215, heading_bucket: "SW", distance_miles: 2.1, duration_sec: 120, avg_speed_mph: 65, avg_power_kw: 18.0, energy_kwh: 0.60, wh_per_mile: 245, point_count: 8, polyline_json: "[[30.5155,-97.6920],[30.5080,-97.7000],[30.5000,-97.7080],[30.4920,-97.7140],[30.4850,-97.7180]]" },
+    { trip_id: "trip-001", segment_order: 3, road_name: "MoPac", road_type: "motorway", start_lat: 30.4850, start_lng: -97.7180, end_lat: 30.4620, end_lng: -97.7350, avg_heading: 200, heading_bucket: "S", distance_miles: 1.5, duration_sec: 90, avg_speed_mph: 62, avg_power_kw: 15.5, energy_kwh: 0.39, wh_per_mile: 235, point_count: 6, polyline_json: "[[30.4850,-97.7180],[30.4780,-97.7240],[30.4700,-97.7300],[30.4620,-97.7350]]" },
+    { trip_id: "trip-001", segment_order: 4, road_name: "Parmer Lane", road_type: "secondary", start_lat: 30.4620, start_lng: -97.7350, end_lat: 30.4500, end_lng: -97.7200, avg_heading: 135, heading_bucket: "SE", distance_miles: 0.9, duration_sec: 85, avg_speed_mph: 38, avg_power_kw: 12.0, energy_kwh: 0.28, wh_per_mile: 265, point_count: 5, polyline_json: "[[30.4620,-97.7350],[30.4580,-97.7300],[30.4540,-97.7250],[30.4500,-97.7200]]" },
+  ],
+  "trip-002": [
+    { trip_id: "trip-002", segment_order: 0, road_name: "I-35", road_type: "motorway", start_lat: 30.2672, start_lng: -97.7431, end_lat: 30.3500, end_lng: -97.7200, avg_heading: 15, heading_bucket: "N", distance_miles: 6.2, duration_sec: 360, avg_speed_mph: 62, avg_power_kw: 16.0, energy_kwh: 1.60, wh_per_mile: 248, point_count: 24, polyline_json: "[[30.2672,-97.7431],[30.2900,-97.7380],[30.3100,-97.7320],[30.3300,-97.7260],[30.3500,-97.7200]]" },
+    { trip_id: "trip-002", segment_order: 1, road_name: "Ben White Boulevard", road_type: "primary", start_lat: 30.2350, start_lng: -97.7700, end_lat: 30.2400, end_lng: -97.8000, avg_heading: 270, heading_bucket: "W", distance_miles: 2.3, duration_sec: 180, avg_speed_mph: 46, avg_power_kw: 20.5, energy_kwh: 1.03, wh_per_mile: 315, point_count: 12, polyline_json: "[[30.2350,-97.7700],[30.2360,-97.7800],[30.2380,-97.7900],[30.2400,-97.8000]]" },
+    { trip_id: "trip-002", segment_order: 2, road_name: "Lamar Boulevard", road_type: "secondary", start_lat: 30.2672, start_lng: -97.7531, end_lat: 30.3100, end_lng: -97.7431, avg_heading: 5, heading_bucket: "N", distance_miles: 3.1, duration_sec: 240, avg_speed_mph: 35, avg_power_kw: 10.0, energy_kwh: 0.67, wh_per_mile: 195, point_count: 16, polyline_json: "[[30.2672,-97.7531],[30.2800,-97.7500],[30.2950,-97.7470],[30.3100,-97.7431]]" },
+  ],
+  "trip-003": [
+    { trip_id: "trip-003", segment_order: 0, road_name: "183 N On-Ramp", road_type: "motorway_link", start_lat: 30.3950, start_lng: -97.7100, end_lat: 30.4020, end_lng: -97.7050, avg_heading: 30, heading_bucket: "NE", distance_miles: 0.4, duration_sec: 25, avg_speed_mph: 42, avg_power_kw: 55.0, energy_kwh: 0.38, wh_per_mile: 485, point_count: 3, polyline_json: "[[30.3950,-97.7100],[30.3980,-97.7080],[30.4020,-97.7050]]" },
+    { trip_id: "trip-003", segment_order: 1, road_name: "183", road_type: "motorway", start_lat: 30.4020, start_lng: -97.7050, end_lat: 30.4500, end_lng: -97.6800, avg_heading: 35, heading_bucket: "NE", distance_miles: 2.8, duration_sec: 160, avg_speed_mph: 68, avg_power_kw: 17.0, energy_kwh: 0.76, wh_per_mile: 255, point_count: 10, polyline_json: "[[30.4020,-97.7050],[30.4150,-97.6980],[30.4300,-97.6900],[30.4500,-97.6800]]" },
+  ],
+};
+
+export const mockHotspots: EfficiencyHotspot[] = [
+  { road_name: "183 N On-Ramp", heading_bucket: "NE", trip_count: 12, avg_wh_per_mile: 462, worst_wh_per_mile: 520, best_wh_per_mile: 385, avg_speed_mph: 45, last_updated: Date.now(), is_hotspot: true },
+  { road_name: "Ben White Boulevard", heading_bucket: "W", trip_count: 7, avg_wh_per_mile: 315, worst_wh_per_mile: 342, best_wh_per_mile: 288, avg_speed_mph: 44, last_updated: Date.now(), is_hotspot: true },
+];
 
 // ─── Demo Mode Toggle ─────────────────────────────────────────────────
 // This is a lightweight check for env vars only. Server-side API routes

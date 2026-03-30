@@ -9,6 +9,8 @@ import { getProvider, buildTripContext } from "@/lib/llm/provider";
 import { notifyBrowserPoll, startBackgroundPoller } from "@/lib/background-poller";
 import { startVoiceServer } from "@/lib/voice-server";
 import { trackCharging, saveBatteryInsight, buildBatteryAnalysisContext, getBatteryHealthSummary } from "@/lib/battery-health";
+import { analyzeTripsSegments, buildSegmentSummary } from "@/lib/route-segments";
+import { updateHotspots } from "@/lib/route-patterns";
 
 // Mock simulation state
 let mockDrivePoints: ReturnType<typeof generateMockDrive> | null = null;
@@ -271,23 +273,30 @@ export async function GET(request: NextRequest) {
           };
           saveTrip(tripRecord);
 
-          // Generate AI summary (async, non-blocking for response)
-          getProvider().generateTripSummary(ctx).then((ai) => {
-            try {
-              const { updateTripAI } = require("@/lib/db");
-              updateTripAI(tripId, {
-                summary: ai.summary,
-                score: ai.efficiency_score,
-                highlights: JSON.stringify(ai.highlights),
-                tip: ai.tip,
-              });
-              console.log(`[TeslaPulse] Trip ${tripId} AI summary saved`);
-            } catch {
-              // non-critical
-            }
-          }).catch((err) => {
-            console.error(`[TeslaPulse] AI trip summary failed for ${tripId}:`, err instanceof Error ? err.message : err);
-          });
+          // Segment analysis → hotspot update → AI summary (chained, async)
+          analyzeTripsSegments(tripId, tripPoints)
+            .then(() => {
+              try { updateHotspots(); } catch { /* non-critical */ }
+              // Include segment data in AI summary
+              const segSummary = buildSegmentSummary(tripId);
+              const enrichedCtx = { ...ctx, summary: ctx.summary + (segSummary || "") };
+              return getProvider().generateTripSummary(enrichedCtx);
+            })
+            .then((ai) => {
+              try {
+                const { updateTripAI } = require("@/lib/db");
+                updateTripAI(tripId, {
+                  summary: ai.summary,
+                  score: ai.efficiency_score,
+                  highlights: JSON.stringify(ai.highlights),
+                  tip: ai.tip,
+                });
+                console.log(`[TeslaPulse] Trip ${tripId} AI summary + segments saved`);
+              } catch { /* non-critical */ }
+            })
+            .catch((err) => {
+              console.error(`[TeslaPulse] Trip analysis failed for ${tripId}:`, err instanceof Error ? err.message : err);
+            });
 
           tripSummary = { tripId, distance: ctx.distanceMiles, duration: ctx.durationMin };
           console.log(`[TeslaPulse] Trip ended: ${ctx.distanceMiles.toFixed(1)} mi, ${ctx.durationMin.toFixed(0)} min`);

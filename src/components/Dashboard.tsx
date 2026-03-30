@@ -18,8 +18,8 @@ import BatteryHealth from "./BatteryHealth";
 import { useVehicle } from "@/hooks/useVehicle";
 import { useTelemetry, type DemoScenario } from "@/hooks/useTelemetry";
 import { useAICoach } from "@/hooks/useAICoach";
-import { mockTrips, mockAnomalies } from "@/lib/mock-data";
-import type { Trip, Anomaly } from "@/types/tesla";
+import { mockTrips, mockAnomalies, mockTripSegments } from "@/lib/mock-data";
+import type { Trip, Anomaly, TripWithSegments } from "@/types/tesla";
 
 const scenarios: { id: DemoScenario; label: string }[] = [
   { id: "driving", label: "Driving" },
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   // Data sources
   // Load persisted trips in live mode — refresh periodically for AI summaries
-  const [liveTrips, setLiveTrips] = useState<Trip[]>([]);
+  const [liveTrips, setLiveTrips] = useState<TripWithSegments[]>([]);
   useEffect(() => {
     if (effectiveDemo) return;
 
@@ -95,7 +95,9 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [effectiveDemo]);
 
-  const trips: Trip[] = effectiveDemo ? mockTrips : liveTrips;
+  const trips: TripWithSegments[] = effectiveDemo
+    ? mockTrips.map((t) => ({ ...t, segments: mockTripSegments[t.id] || [] }))
+    : liveTrips;
   const anomalies: Anomaly[] = effectiveDemo ? mockAnomalies : telemetry.anomalies;
 
   const handleCommand = useCallback(

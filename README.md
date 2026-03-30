@@ -19,6 +19,8 @@ Supports **Grok**, **Claude**, **GPT**, and **Gemini** — pick your AI co-pilot
 - **Persistent History** — Trips, telemetry, charge sessions, and battery health stored in SQLite, survive restarts
 - **Trip Reconstruction** — Missed trips (from server restarts mid-drive) are automatically reconstructed from stored telemetry on startup
 - **Rich AI Context** — Voice and chat AI have access to today/yesterday/week/lifetime driving stats, recent trips, charge history, and battery health
+- **Location-Aware Efficiency** — Per-road-segment analysis with reverse geocoding (Nominatim/OSM). Color-coded route maps, efficiency bars per road, and recurring hotspot detection
+- **Efficiency Hotspots** — Automatically flags roads where you consistently use more energy. AI references specific road names in coaching tips
 - **PWA Support** — Install on your phone as a native-feeling app
 - **Multi-LLM** — Choose between Grok, Claude, GPT, or Gemini
 - **Settings UI** — Configure everything from the browser, no env files needed
@@ -116,6 +118,37 @@ TeslaPulse includes a voice interface powered by xAI's Grok Voice Agent API. Tap
 
 **Production setup:** Add a WebSocket proxy to your nginx config for `/voice` → `localhost:3101`. See `scripts/nginx.conf.example`.
 
+## Talk to Your AI
+
+Both the chat panel and voice co-pilot have full context about your driving history, battery health, charge sessions, and efficiency hotspots. Here are things you can ask:
+
+**Driving & Trips:**
+- "How was my drive today?"
+- "Compare today's efficiency to yesterday"
+- "How many miles did I drive this week?"
+- "What was my worst segment on the last trip?"
+- "Where am I wasting the most energy?"
+
+**Battery & Charging:**
+- "How's my battery health?"
+- "Am I degrading faster than average?"
+- "How much have I charged this month?"
+- "Should I use superchargers less?"
+
+**Live Coaching (while driving):**
+- "How's my efficiency right now?"
+- "What road am I on?" (uses reverse geocoding)
+- "Is this a high-consumption road?" (checks hotspot database)
+
+**Real-time Data:**
+- "What's my battery at?"
+- "How far can I go on this charge?"
+- "What's the cabin temperature?"
+
+The AI references specific numbers from your telemetry and names specific roads from your trips. For example:
+
+> *"Your 183A Toll Road southbound segment averages 443 Wh/mi across 2 trips — that's 70% above your overall average. The frontage road merge is even worse at 3,603 Wh/mi. Try maintaining a steadier speed through the toll plaza."*
+
 ## Tesla API Costs
 
 Tesla provides a **$10/month free credit** per developer account. TeslaPulse is designed to stay within this:
@@ -156,7 +189,8 @@ src/
 │   ├── AICoachCard.tsx     # AI efficiency tip card
 │   ├── ChatPanel.tsx       # Collapsible AI chat
 │   ├── VoiceCoPilot.tsx    # Voice co-pilot with mic + audio playback
-│   ├── TripHistory.tsx     # Past trips with AI summaries
+│   ├── TripHistory.tsx     # Past trips with AI summaries + segment breakdown
+│   ├── TripRouteMap.tsx    # Color-coded efficiency polylines on Leaflet map
 │   ├── BatteryHealth.tsx   # Battery degradation tracker + chart
 │   └── ...
 ├── hooks/                  # Custom React hooks
@@ -170,7 +204,9 @@ src/
 │   ├── voice-server.ts     # WebSocket proxy for voice co-pilot
 │   ├── voice-prompt.ts     # Dynamic voice system prompt builder
 │   ├── battery-health.ts   # Charge session tracking + health computation
-│   └── history-context.ts  # Shared driving/charging history for AI prompts
+│   ├── history-context.ts  # Shared driving/charging history for AI prompts
+│   ├── route-segments.ts   # Road segment analysis + Nominatim geocoding
+│   └── route-patterns.ts   # Efficiency hotspot detection across trips
 └── types/                  # TypeScript type definitions
 ```
 

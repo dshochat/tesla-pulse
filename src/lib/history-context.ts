@@ -159,6 +159,20 @@ export function buildHistoryContext(): string {
       sections.push(healthLine);
     }
 
+    // Efficiency hotspots
+    try {
+      const hotspots = db.prepare(
+        "SELECT * FROM efficiency_hotspots WHERE is_hotspot = 1 ORDER BY avg_wh_per_mile DESC LIMIT 5"
+      ).all() as Array<{ road_name: string; heading_bucket: string; avg_wh_per_mile: number; trip_count: number; worst_wh_per_mile: number }>;
+
+      if (hotspots.length > 0) {
+        sections.push("", "EFFICIENCY HOT SPOTS:");
+        for (const h of hotspots) {
+          sections.push(`- ${h.road_name} ${h.heading_bucket}: avg ${Math.round(h.avg_wh_per_mile)} Wh/mi (${h.trip_count} trips, worst: ${Math.round(h.worst_wh_per_mile)})`);
+        }
+      }
+    } catch { /* no hotspots table yet */ }
+
     return sections.join("\n");
   } catch (e) {
     try { db.close(); } catch { /* */ }

@@ -75,6 +75,61 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_anomalies_timestamp ON anomalies(timestamp);
+
+    CREATE TABLE IF NOT EXISTS geocode_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      lat_bucket REAL NOT NULL,
+      lng_bucket REAL NOT NULL,
+      road_name TEXT,
+      road_type TEXT,
+      city TEXT,
+      fetched_at INTEGER NOT NULL,
+      UNIQUE(lat_bucket, lng_bucket)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_geocode_bucket ON geocode_cache(lat_bucket, lng_bucket);
+
+    CREATE TABLE IF NOT EXISTS trip_segments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trip_id TEXT NOT NULL,
+      segment_order INTEGER NOT NULL,
+      road_name TEXT,
+      road_type TEXT,
+      start_lat REAL,
+      start_lng REAL,
+      end_lat REAL,
+      end_lng REAL,
+      avg_heading REAL,
+      heading_bucket TEXT,
+      distance_miles REAL NOT NULL,
+      duration_sec REAL NOT NULL,
+      avg_speed_mph REAL NOT NULL,
+      avg_power_kw REAL NOT NULL,
+      energy_kwh REAL NOT NULL,
+      wh_per_mile REAL NOT NULL,
+      point_count INTEGER NOT NULL,
+      polyline_json TEXT,
+      FOREIGN KEY (trip_id) REFERENCES trips(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_trip_segments_trip ON trip_segments(trip_id);
+    CREATE INDEX IF NOT EXISTS idx_trip_segments_road ON trip_segments(road_name);
+
+    CREATE TABLE IF NOT EXISTS efficiency_hotspots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      road_name TEXT NOT NULL,
+      heading_bucket TEXT NOT NULL,
+      trip_count INTEGER NOT NULL,
+      avg_wh_per_mile REAL NOT NULL,
+      worst_wh_per_mile REAL NOT NULL,
+      best_wh_per_mile REAL NOT NULL,
+      avg_speed_mph REAL NOT NULL,
+      last_updated INTEGER NOT NULL,
+      is_hotspot BOOLEAN NOT NULL DEFAULT 0,
+      UNIQUE(road_name, heading_bucket)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_hotspots_road ON efficiency_hotspots(road_name);
   `);
 }
 
@@ -286,4 +341,136 @@ export function getRecentAnomalies(limit = 10): Anomaly[] {
     .all(limit) as Array<Anomaly & { data: string }>;
 
   return rows.map((r) => ({ ...r, data: JSON.parse(r.data) }));
+}
+
+// ─── Geocode Cache ───────────────────────────────────────────────────
+
+export function getCachedRoadName(latBucket: number, lngBucket: number): { road_name: string; road_type: string; city: string } | null {
+  return getDb()
+    .prepare("SELECT road_name, road_type, city FROM geocode_cache WHERE lat_bucket = ? AND lng_bucket = ?")
+    .get(latBucket, lngBucket) as { road_name: string; road_type: string; city: string } | undefined ?? null;
+}
+
+export function cacheRoadName(latBucket: number, lngBucket: number, roadName: string | null, roadType: string | null, city: string | null) {
+  getDb()
+    .prepare(
+      `INSERT OR REPLACE INTO geocode_cache (lat_bucket, lng_bucket, road_name, road_type, city, fetched_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(latBucket, lngBucket, roadName, roadType, city, Date.now());
+}
+
+// ─── Trip Segments ───────────────────────────────────────────────────
+
+import type { TripSegment, EfficiencyHotspot } from "@/types/tesla";
+
+export function saveTripSegments(tripId: string, segments: TripSegment[]) {
+  const d = getDb();
+  const stmt = d.prepare(
+    `INSERT INTO trip_segments (
+      trip_id, segment_order, road_name, road_type,
+      start_lat, start_lng, end_lat, end_lng,
+      avg_heading, heading_bucket, distance_miles, duration_sec,
+      avg_speed_mph, avg_power_kw, energy_kwh, wh_per_mile,
+      point_count, polyline_json
+    ) VALUES (
+      @trip_id, @segment_order, @road_name, @road_type,
+      @start_lat, @start_lng, @end_lat, @end_lng,
+      @avg_heading, @heading_bucket, @distance_miles, @duration_sec,
+      @avg_speed_mph, @avg_power_kw, @energy_kwh, @wh_per_mile,
+      @point_count, @polyline_json
+    )`
+  );
+
+  const insertMany = d.transaction((segs: TripSegment[]) => {
+    for (const s of segs) stmt.run(s);
+  });
+
+  insertMany(segments);
+}
+
+export function getTripSegments(tripId: string): TripSegment[] {
+  return getDb()
+    .prepare("SELECT * FROM trip_segments WHERE trip_id = ? ORDER BY segment_order")
+    .all(tripId) as TripSegment[];
+}
+
+export function getTripsWithSegments(limit = 20): Array<Trip & { segments: TripSegment[] }> {
+  const trips = getTrips(limit);
+  return trips.map((t) => ({
+    ...t,
+    segments: getTripSegments(t.id),
+  }));
+}
+
+export function tripHasSegments(tripId: string): boolean {
+  const row = getDb()
+    .prepare("SELECT COUNT(*) as c FROM trip_segments WHERE trip_id = ?")
+    .get(tripId) as { c: number };
+  return row.c > 0;
+}
+
+// ─── Efficiency Hotspots ─────────────────────────────────────────────
+
+export function upsertHotspot(h: EfficiencyHotspot) {
+  getDb()
+    .prepare(
+      `INSERT OR REPLACE INTO efficiency_hotspots (
+        road_name, heading_bucket, trip_count,
+        avg_wh_per_mile, worst_wh_per_mile, best_wh_per_mile,
+        avg_speed_mph, last_updated, is_hotspot
+      ) VALUES (
+        @road_name, @heading_bucket, @trip_count,
+        @avg_wh_per_mile, @worst_wh_per_mile, @best_wh_per_mile,
+        @avg_speed_mph, @last_updated, @is_hotspot
+      )`
+    )
+    .run(h);
+}
+
+export function getHotspots(limit = 10): EfficiencyHotspot[] {
+  return getDb()
+    .prepare("SELECT * FROM efficiency_hotspots WHERE is_hotspot = 1 ORDER BY avg_wh_per_mile DESC LIMIT ?")
+    .all(limit) as EfficiencyHotspot[];
+}
+
+export function getAllHotspots(limit = 20): EfficiencyHotspot[] {
+  return getDb()
+    .prepare("SELECT * FROM efficiency_hotspots ORDER BY avg_wh_per_mile DESC LIMIT ?")
+    .all(limit) as EfficiencyHotspot[];
+}
+
+export function getSegmentStatsByRoad(): Array<{
+  road_name: string;
+  heading_bucket: string;
+  trip_count: number;
+  avg_wh: number;
+  worst_wh: number;
+  best_wh: number;
+  avg_speed: number;
+}> {
+  return getDb()
+    .prepare(
+      `SELECT
+        road_name, heading_bucket,
+        COUNT(DISTINCT trip_id) as trip_count,
+        AVG(wh_per_mile) as avg_wh,
+        MAX(wh_per_mile) as worst_wh,
+        MIN(wh_per_mile) as best_wh,
+        AVG(avg_speed_mph) as avg_speed
+      FROM trip_segments
+      WHERE road_name IS NOT NULL AND road_name != 'Unknown Road'
+      GROUP BY road_name, heading_bucket
+      HAVING COUNT(DISTINCT trip_id) >= 2
+      ORDER BY avg_wh DESC`
+    )
+    .all() as Array<{
+    road_name: string;
+    heading_bucket: string;
+    trip_count: number;
+    avg_wh: number;
+    worst_wh: number;
+    best_wh: number;
+    avg_speed: number;
+  }>;
 }

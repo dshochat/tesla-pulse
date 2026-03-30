@@ -278,6 +278,47 @@ export interface BatteryHealthSummary {
   odometer: number | null;
 }
 
+// ─── Route Segment Types ─────────────────────────────────────────────
+
+export interface TripSegment {
+  id?: number;
+  trip_id: string;
+  segment_order: number;
+  road_name: string | null;
+  road_type: string | null;
+  start_lat: number;
+  start_lng: number;
+  end_lat: number;
+  end_lng: number;
+  avg_heading: number;
+  heading_bucket: string;
+  distance_miles: number;
+  duration_sec: number;
+  avg_speed_mph: number;
+  avg_power_kw: number;
+  energy_kwh: number;
+  wh_per_mile: number;
+  point_count: number;
+  polyline_json: string;
+}
+
+export interface EfficiencyHotspot {
+  id?: number;
+  road_name: string;
+  heading_bucket: string;
+  trip_count: number;
+  avg_wh_per_mile: number;
+  worst_wh_per_mile: number;
+  best_wh_per_mile: number;
+  avg_speed_mph: number;
+  last_updated: number;
+  is_hotspot: boolean;
+}
+
+export interface TripWithSegments extends Trip {
+  segments?: TripSegment[];
+}
+
 export type DashboardMode = "driving" | "charging" | "parked" | "offline" | "asleep";
 
 export interface AppState {
