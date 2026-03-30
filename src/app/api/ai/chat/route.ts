@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/llm/provider";
 import { telemetryStore } from "@/lib/telemetry-store";
 import { isDemoModeFromSettings as isDemoMode } from "@/lib/settings";
+import { buildHistoryContext } from "@/lib/history-context";
 
 const demoResponses: Record<string, string> = {
   battery:
@@ -64,6 +65,11 @@ export async function POST(request: NextRequest) {
     if (latest) {
       context = `Current state: speed ${latest.speed ?? 0} mph, power ${latest.power.toFixed(1)} kW, battery ${latest.battery_level.toFixed(0)}%, range ${latest.battery_range.toFixed(0)} mi, ${latest.shift_state ? "driving" : "parked"}, charging: ${latest.charging_state}, temps: ${latest.inside_temp.toFixed(1)}°C inside / ${latest.outside_temp.toFixed(1)}°C outside. Buffer has ${recent.length} recent points.`;
     }
+
+    // Add full history context (trips, charges, battery health)
+    try {
+      context += "\n\n" + buildHistoryContext();
+    } catch { /* non-critical */ }
 
     const provider = getProvider();
     const reply = await provider.chat(messages, { contextString: context });

@@ -14,6 +14,7 @@ import TripHistory from "./TripHistory";
 import AnomalyAlert from "./AnomalyAlert";
 import ChatPanel from "./ChatPanel";
 import VoiceCoPilot from "./VoiceCoPilot";
+import BatteryHealth from "./BatteryHealth";
 import { useVehicle } from "@/hooks/useVehicle";
 import { useTelemetry, type DemoScenario } from "@/hooks/useTelemetry";
 import { useAICoach } from "@/hooks/useAICoach";
@@ -76,15 +77,22 @@ export default function Dashboard() {
   }, [telemetry.mode]);
 
   // Data sources
-  // Load persisted trips in live mode
+  // Load persisted trips in live mode — refresh periodically for AI summaries
   const [liveTrips, setLiveTrips] = useState<Trip[]>([]);
   useEffect(() => {
-    if (!effectiveDemo) {
+    if (effectiveDemo) return;
+
+    const fetchTrips = () => {
       fetch("/api/trips")
         .then((r) => r.json())
         .then((d) => setLiveTrips(d.trips || []))
         .catch(() => {});
-    }
+    };
+
+    fetchTrips();
+    // Re-fetch every 30s to pick up new trips and AI summaries
+    const interval = setInterval(fetchTrips, 30_000);
+    return () => clearInterval(interval);
   }, [effectiveDemo]);
 
   const trips: Trip[] = effectiveDemo ? mockTrips : liveTrips;
@@ -337,6 +345,15 @@ export default function Dashboard() {
               transition={{ delay: 0.3 }}
             >
               <TripHistory trips={trips} />
+            </motion.div>
+
+            {/* Battery Health */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+            >
+              <BatteryHealth demoMode={effectiveDemo} />
             </motion.div>
           </div>
 

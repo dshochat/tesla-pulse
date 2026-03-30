@@ -39,11 +39,14 @@ export interface ChargeState {
   charger_voltage: number;
   charging_state: "Charging" | "Complete" | "Disconnected" | "Stopped" | "NoPower";
   est_battery_range: number;
+  fast_charger_present?: boolean;
+  fast_charger_type?: string;
   ideal_battery_range: number;
   minutes_to_full_charge: number;
   time_to_full_charge: number; // hours
   timestamp: number;
   usable_battery_level: number;
+  battery_heater_on?: boolean;
 }
 
 export interface ClimateState {
@@ -207,6 +210,73 @@ export interface CommandResult {
 }
 
 // ─── App State ────────────────────────────────────────────────────────
+
+// ─── Battery Health Types ────────────────────────────────────────────
+
+export interface ChargeSession {
+  id?: number;
+  timestamp: string;
+  battery_level_start: number;
+  battery_level_end: number;
+  range_at_end: number;
+  energy_added: number;
+  charge_rate_avg: number;
+  charge_rate_max: number;
+  charger_type: "supercharger" | "home" | "destination" | "other";
+  charger_voltage: number;
+  charger_current: number;
+  duration_minutes: number;
+  odometer: number;
+  outside_temp: number;
+  battery_heater_on: boolean;
+}
+
+export interface BatteryHealthSnapshot {
+  id?: number;
+  timestamp: string;
+  odometer: number;
+  max_range_at_100: number;
+  battery_level: number;
+  measured_range: number;
+  estimated_health_pct: number;
+  degradation_pct: number;
+  original_epa_range: number;
+}
+
+export interface SameLevelHealth {
+  month: string; // YYYY-MM
+  avg_range: number; // average range for sessions ending 75-85%
+  avg_level: number; // average battery level
+  session_count: number;
+  odometer_avg: number;
+  health_pct: number; // relative to first month's reading
+}
+
+export interface BatteryInsight {
+  id?: number;
+  timestamp: string;
+  insight: string;
+  session_count: number;
+}
+
+export interface BatteryHealthSummary {
+  currentHealth: number | null;
+  degradation: number | null;
+  totalSessions: number;
+  totalEnergyKwh: number;
+  avgChargeRate: number;
+  superchargerPct: number;
+  avgChargeLevel: number;
+  sessionsPerWeek: number;
+  healthHistory: BatteryHealthSnapshot[];
+  sameLevelHistory: SameLevelHealth[];
+  sameLevelHealth: number | null; // current same-level health %
+  sameLevelDegradation: number | null;
+  recentSessions: ChargeSession[];
+  latestInsight: BatteryInsight | null;
+  vehicleAge: number | null; // months
+  odometer: number | null;
+}
 
 export type DashboardMode = "driving" | "charging" | "parked" | "offline" | "asleep";
 

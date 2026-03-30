@@ -4,10 +4,11 @@ import { mockVehicleData, generateMockDrive, generateMockChargingSession } from 
 import { isDemoModeFromSettings } from "@/lib/settings";
 import { telemetryStore, vehicleDataToTelemetry, determineDashboardMode, getPollingInterval } from "@/lib/telemetry-store";
 import { detectAnomalies } from "@/lib/anomaly-detector";
-import { saveTelemetry, saveAnomaly, getRecentTelemetry, saveTrip } from "@/lib/db";
+import { saveTelemetry, saveAnomaly, getRecentTelemetry, saveTrip, reconstructMissedTrips } from "@/lib/db";
 import { getProvider, buildTripContext } from "@/lib/llm/provider";
 import { notifyBrowserPoll, startBackgroundPoller } from "@/lib/background-poller";
 import { startVoiceServer } from "@/lib/voice-server";
+import { trackCharging, saveBatteryInsight, buildBatteryAnalysisContext, getBatteryHealthSummary } from "@/lib/battery-health";
 
 // Mock simulation state
 let mockDrivePoints: ReturnType<typeof generateMockDrive> | null = null;
@@ -179,6 +180,8 @@ export async function GET(request: NextRequest) {
       try {
         const stored = getRecentTelemetry(30);
         telemetryStore.hydrate(stored);
+        // Reconstruct any trips missed during server restarts
+        reconstructMissedTrips();
       } catch {
         // DB read failure is non-critical
       }
@@ -196,6 +199,36 @@ export async function GET(request: NextRequest) {
       saveTelemetry(telemetryPoint);
     } catch {
       // DB write failure is non-critical
+    }
+
+    // Track charge sessions (live mode only)
+    if (!demo) {
+      try {
+        const sessionResult = trackCharging(vehicleData);
+        if (sessionResult) {
+          // Every 5th session triggers AI analysis
+          const summary = getBatteryHealthSummary();
+          const model = vehicleData.vehicle_config?.car_type || "Tesla";
+          const odometer = vehicleData.vehicle_state?.odometer || 0;
+          const age = summary.vehicleAge || 0;
+          const ctx = buildBatteryAnalysisContext(model, odometer, age);
+
+          getProvider()
+            .chat(
+              [{ role: "user" as const, content: ctx }],
+              {
+                contextString: `You are TeslaPulse Battery Analyst. Analyze this Tesla's battery health data and give 2-3 specific, actionable insights. Be concise.\n\nProvide:\n1. Overall assessment (one sentence)\n2. Whether degradation is above/below average for this model and mileage\n3. One specific charging habit recommendation to improve longevity`,
+              }
+            )
+            .then((insight: string) => {
+              saveBatteryInsight(insight, summary.totalSessions);
+              console.log("[BatteryHealth] AI insight saved");
+            })
+            .catch(() => {});
+        }
+      } catch {
+        // Battery tracking failure is non-critical
+      }
     }
 
     // Detect trip end: was driving, now not
@@ -252,7 +285,9 @@ export async function GET(request: NextRequest) {
             } catch {
               // non-critical
             }
-          }).catch(() => {});
+          }).catch((err) => {
+            console.error(`[TeslaPulse] AI trip summary failed for ${tripId}:`, err instanceof Error ? err.message : err);
+          });
 
           tripSummary = { tripId, distance: ctx.distanceMiles, duration: ctx.durationMin };
           console.log(`[TeslaPulse] Trip ended: ${ctx.distanceMiles.toFixed(1)} mi, ${ctx.durationMin.toFixed(0)} min`);

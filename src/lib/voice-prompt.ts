@@ -1,4 +1,5 @@
 import { telemetryStore } from "./telemetry-store";
+import { buildHistoryContext } from "./history-context";
 
 export function buildVoiceSystemPrompt(): string {
   const recent = telemetryStore.getRecent(10);
@@ -11,7 +12,6 @@ export function buildVoiceSystemPrompt(): string {
   let sessionEfficiency = 0;
 
   if (trip.length >= 2) {
-    // Filter to only points with plausible odometer values (within 500 mi of latest)
     const latestOdo = trip[trip.length - 1].odometer;
     const validTrip = trip.filter(p => Math.abs(p.odometer - latestOdo) < 500);
     if (validTrip.length >= 2) {
@@ -25,7 +25,7 @@ export function buildVoiceSystemPrompt(): string {
     }
   }
 
-  // Calculate recent efficiency — same odometer sanity check
+  // Calculate recent efficiency
   let recentEfficiency = 0;
   if (recent.length >= 2) {
     const first = recent[0];
@@ -37,9 +37,6 @@ export function buildVoiceSystemPrompt(): string {
       recentEfficiency = Math.round((energy * 1000) / dist);
     }
   }
-
-  // Build anomaly list
-  const anomalies = "None detected";
 
   const speed = latest?.speed ?? 0;
   const power = latest?.power ?? 0;
@@ -53,7 +50,15 @@ export function buildVoiceSystemPrompt(): string {
   const lng = latest?.longitude ?? 0;
   const odometer = latest?.odometer ?? 0;
 
-  return `You are Pulse, the AI voice co-pilot for a Tesla vehicle. You have access to real-time telemetry from the driver's car. Be concise — the driver is driving. Keep responses under 3 sentences unless asked for detail.
+  // Get historical context from DB
+  let historyCtx = "";
+  try {
+    historyCtx = buildHistoryContext();
+  } catch {
+    historyCtx = "DRIVING HISTORY: Unavailable";
+  }
+
+  return `You are Pulse, the AI voice co-pilot for a Tesla vehicle. You have access to real-time telemetry and full driving history. Be concise — the driver is driving. Keep responses under 3 sentences unless asked for detail.
 
 CURRENT VEHICLE STATE:
 - Speed: ${speed} mph
@@ -71,12 +76,13 @@ CURRENT SESSION:
 - Distance: ${sessionDistance.toFixed(1)} mi
 - Session efficiency: ${sessionEfficiency || "N/A"} Wh/mi
 
-ANOMALIES: ${anomalies}
+${historyCtx}
 
 PERSONALITY:
 - You're like a calm, knowledgeable co-pilot
-- Reference specific numbers from the telemetry when relevant
+- Reference specific numbers from the telemetry and history when relevant
 - If asked about efficiency, compare to EPA estimates (~260 Wh/mi for Model 3/Y)
+- If asked about trips, charging, or battery health, use the historical data above
 - If you detect concerning data (low battery, unusual power draw), mention it
 - Use driver-friendly language, not technical jargon
 - Keep it brief — the driver needs to focus on the road`;

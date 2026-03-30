@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { AITripSummary } from "@/types/tesla";
 import type { LLMProvider, TelemetryContext, TripContext, AnomalyContext, VehicleContext, ChatMessage } from "./types";
 import { SYSTEM_PROMPTS } from "./types";
+import { getSettings } from "../settings";
 
 const FAST_MODEL = "grok-4-fast";
 const FULL_MODEL = "grok-4";
@@ -10,7 +11,8 @@ let client: OpenAI | null = null;
 
 function getClient(apiKey?: string): OpenAI {
   if (!client) {
-    const key = apiKey || process.env.XAI_API_KEY;
+    const settings = getSettings();
+    const key = apiKey || settings.keys?.xai_api_key || process.env.XAI_API_KEY;
     if (!key) throw new Error("XAI_API_KEY is required for Grok provider");
     client = new OpenAI({ apiKey: key, baseURL: "https://api.x.ai/v1" });
   }

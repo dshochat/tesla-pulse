@@ -5,6 +5,10 @@ import type {
   Trip,
   Anomaly,
   AICoachTip,
+  BatteryHealthSummary,
+  ChargeSession,
+  BatteryHealthSnapshot,
+  SameLevelHealth,
 } from "@/types/tesla";
 
 // ─── Mock Vehicle ─────────────────────────────────────────────────────
@@ -388,6 +392,96 @@ export const mockCoachTips: AICoachTip[] = [
     timestamp: Date.now() - 450_000,
   },
 ];
+
+// ─── Mock Battery Health ─────────────────────────────────────────────
+
+export function mockBatteryHealthSummary(): BatteryHealthSummary {
+  const now = Date.now();
+  const month = 30 * 24 * 60 * 60 * 1000;
+
+  // 12 months of health snapshots: 100% → 95.8%
+  const healthHistory: BatteryHealthSnapshot[] = Array.from({ length: 12 }, (_, i) => {
+    const age = 11 - i; // months ago
+    const health = 100 - (4.2 * ((12 - age) / 12)); // linear decline to 95.8
+    const odo = 1000 * (12 - age);
+    return {
+      timestamp: new Date(now - age * month).toISOString(),
+      odometer: odo,
+      max_range_at_100: health * 3.3,
+      battery_level: 95,
+      measured_range: health * 3.3 * 0.95,
+      estimated_health_pct: Math.round(health * 10) / 10,
+      degradation_pct: Math.round((100 - health) * 10) / 10,
+      original_epa_range: 330,
+    };
+  });
+
+  const chargerTypes: ChargeSession["charger_type"][] = [
+    "home", "home", "home", "supercharger", "home",
+    "home", "destination", "home", "home", "supercharger",
+  ];
+
+  const recentSessions: ChargeSession[] = Array.from({ length: 10 }, (_, i) => {
+    const daysAgo = i * 3 + 1;
+    const startLvl = 15 + Math.floor(Math.random() * 30);
+    const endLvl = 75 + Math.floor(Math.random() * 15);
+    const type = chargerTypes[i];
+    const rate = type === "supercharger" ? 120 + Math.random() * 80 : type === "destination" ? 11 : 7.2;
+    const temp = 15 + Math.random() * 20 - (i > 6 ? 10 : 0); // colder older sessions
+
+    return {
+      timestamp: new Date(now - daysAgo * 24 * 60 * 60 * 1000).toISOString(),
+      battery_level_start: startLvl,
+      battery_level_end: endLvl,
+      range_at_end: endLvl * 3.15,
+      energy_added: ((endLvl - startLvl) / 100) * 75,
+      charge_rate_avg: Math.round(rate * 10) / 10,
+      charge_rate_max: Math.round(rate * 1.15 * 10) / 10,
+      charger_type: type,
+      charger_voltage: type === "supercharger" ? 400 : 240,
+      charger_current: type === "supercharger" ? 300 : 32,
+      duration_minutes: Math.round(((endLvl - startLvl) / 100) * 75 / rate * 60),
+      odometer: 12000 - daysAgo * 30,
+      outside_temp: Math.round(temp * 10) / 10,
+      battery_heater_on: temp < 5,
+    };
+  });
+
+  return {
+    currentHealth: 95.8,
+    degradation: 4.2,
+    sameLevelHealth: 96.2,
+    sameLevelDegradation: 3.8,
+    sameLevelHistory: Array.from({ length: 12 }, (_, i) => {
+      const monthDate = new Date(now - (11 - i) * month);
+      const health = 100 - (3.8 * ((i + 1) / 12));
+      return {
+        month: monthDate.toISOString().slice(0, 7),
+        avg_range: 264 - (i * 0.85),
+        avg_level: 80,
+        session_count: 2 + Math.floor(Math.random() * 3),
+        odometer_avg: 1000 * (i + 1),
+        health_pct: Math.round(health * 10) / 10,
+      } as SameLevelHealth;
+    }),
+    totalSessions: 47,
+    totalEnergyKwh: 2847.3,
+    avgChargeRate: 18.4,
+    superchargerPct: 17,
+    avgChargeLevel: 82,
+    sessionsPerWeek: 2.3,
+    healthHistory,
+    recentSessions,
+    latestInsight: {
+      timestamp: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      insight:
+        "Your battery is degrading 18% slower than average for a Model Y at this mileage. Your habit of charging to 80% and minimal supercharger use is paying off. Consider avoiding charges below 10% — you've done this 3 times in the last month.",
+      session_count: 47,
+    },
+    vehicleAge: 14,
+    odometer: 12842,
+  };
+}
 
 // ─── Demo Mode Toggle ─────────────────────────────────────────────────
 // This is a lightweight check for env vars only. Server-side API routes

@@ -71,7 +71,7 @@ export default function TripHistory({ trips }: TripHistoryProps) {
                   <TimeAgo timestamp={trip.started_at} />
                   <span className="text-[10px] text-text-secondary">·</span>
                   <span className="font-mono-telemetry text-[10px] text-text-secondary">
-                    {durationMin}min · {trip.distance_miles.toFixed(1)}mi
+                    {durationMin}min · {trip.distance_miles.toFixed(1)} mi
                   </span>
                 </div>
                 {trip.ai_efficiency_score && (
@@ -80,29 +80,29 @@ export default function TripHistory({ trips }: TripHistoryProps) {
               </div>
 
               {/* Metrics row */}
-              <div className="mb-2 flex gap-4 text-[10px]">
+              <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
                 <span className="text-text-secondary">
                   Avg{" "}
                   <span className="font-mono-telemetry text-text-primary">
-                    {trip.avg_speed_mph}
+                    {Math.round(trip.avg_speed_mph)}
                   </span>{" "}
                   mph
                 </span>
                 <span className="text-text-secondary">
                   Max{" "}
                   <span className="font-mono-telemetry text-text-primary">
-                    {trip.max_speed_mph}
+                    {Math.round(trip.max_speed_mph)}
                   </span>{" "}
                   mph
                 </span>
                 <span className="text-text-secondary">
                   <span className="font-mono-telemetry text-text-primary">
-                    {trip.efficiency_wh_per_mile}
+                    {Math.round(trip.efficiency_wh_per_mile)}
                   </span>{" "}
                   Wh/mi
                 </span>
                 <span className="text-text-secondary">
-                  {trip.start_battery}% → {trip.end_battery}%
+                  {Math.round(trip.start_battery)}% → {Math.round(trip.end_battery)}%
                 </span>
               </div>
 
