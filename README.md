@@ -1,5 +1,7 @@
 # TeslaPulse ⚡
 
+*Your car already has the data. Now it has a brain.*
+
 AI-powered real-time telemetry dashboard for Tesla vehicles. Streams live vehicle data via the Tesla Fleet API and uses AI to provide driving efficiency coaching, trip summaries, anomaly detection, and a conversational chat interface.
 
 Supports **Grok**, **Claude**, **GPT**, and **Gemini** — pick your AI co-pilot.
